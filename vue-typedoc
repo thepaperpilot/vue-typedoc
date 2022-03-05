@@ -28,6 +28,9 @@ fs.readFileSync = (...args) => {
                     const useCaseSensitiveFileNames = rootNamesOrOptions.host.useCaseSensitiveFileNames;
                     rootNamesOrOptions.host.useCaseSensitiveFileNames = () => useCaseSensitiveFileNames;
                 }
+                if (rootNamesOrOptions.host.getDefaultLibFileName == null) {
+                    rootNamesOrOptions.host.getDefaultLibFileName = ts.getDefaultLibFileName;
+                }
                 return require(${JSON.stringify(proxyPath)}).createProgramProxy(rootNamesOrOptions);`,
         );
         return tsc;
