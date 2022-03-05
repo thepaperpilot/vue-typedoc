@@ -1,0 +1,159 @@
+#!/usr/bin/env node
+const fs = require('fs');
+
+// Remap calls to typescript's createProgram with vue-tsc's proxy
+
+const readFileSync = fs.readFileSync;
+const tscPath = require.resolve('typescript/lib/typescript');
+const proxyPath = require.resolve('vue-tsc/out/proxy');
+
+fs.readFileSync = (...args) => {
+    if (args[0] === tscPath) {
+        let tsc = readFileSync(...args);
+        tsc = tsc.replace(
+            `function createIncrementalProgram(_a) {`,
+            `function createIncrementalProgram(_a) { console.error('incremental mode is not yet supported'); throw 'incremental mode is not yet supported';`,
+        );
+        tsc = tsc.replace(
+            `function createWatchProgram(host) {`,
+            `function createWatchProgram(host) { console.error('watch mode is not yet supported'); throw 'watch mode is not yet supported';`,
+        );
+        tsc = tsc.replace(
+            `function createProgram(rootNamesOrOptions, _options, _host, _oldProgram, _configFileParsingDiagnostics) {`,
+            `function createProgram(rootNamesOrOptions, _options, _host, _oldProgram, _configFileParsingDiagnostics) { return require(${JSON.stringify(proxyPath)}).createProgramProxy(...arguments);`,
+        );
+        return tsc;
+    }
+    return readFileSync(...args);
+};
+
+const TypeDoc = require(require.resolve('typedoc'));
+
+// Run typedoc, using modified version of the their bin:
+// https://github.com/TypeStrong/typedoc/blob/master/bin/typedoc
+
+const ExitCodes = {
+    Ok: 0,
+    OptionError: 1,
+    NoEntryPoints: 2,
+    CompileError: 3,
+    ValidationError: 4,
+    OutputError: 5,
+    ExceptionThrown: 6,
+};
+
+const app = new TypeDoc.Application();
+
+app.options.addReader(new TypeDoc.ArgumentsReader(0));
+app.options.addReader(new TypeDoc.TypeDocReader());
+app.options.addReader(new TypeDoc.TSConfigReader());
+app.options.addReader(new TypeDoc.ArgumentsReader(300));
+
+app.bootstrap();
+
+run(app)
+    .catch((error) => {
+        console.error("TypeDoc exiting with unexpected error:");
+        console.error(error);
+        return ExitCodes.ExceptionThrown;
+    })
+    .then((exitCode) => (process.exitCode = exitCode));
+
+async function run(app) {
+    if (app.options.getValue("version")) {
+        console.log(app.toString());
+        return ExitCodes.Ok;
+    }
+
+    if (app.options.getValue("help")) {
+        console.log("Please try `typedoc help` for options help");
+        return ExitCodes.Ok;
+    }
+
+    if (app.options.getValue("showConfig")) {
+        console.log(app.options.getRawValues());
+        return ExitCodes.Ok;
+    }
+
+    if (app.logger.hasErrors()) {
+        return ExitCodes.OptionError;
+    }
+    if (
+        app.options.getValue("treatWarningsAsErrors") &&
+        app.logger.hasWarnings()
+    ) {
+        return ExitCodes.OptionError;
+    }
+
+    if (app.options.getValue("entryPoints").length === 0) {
+        app.logger.error("No entry points provided");
+        return ExitCodes.NoEntryPoints;
+    }
+
+    if (app.options.getValue("watch")) {
+        app.convertAndWatch(async (project) => {
+            const out = app.options.getValue("out");
+            if (out) {
+                await app.generateDocs(project, out);
+            }
+            const json = app.options.getValue("json");
+            if (json) {
+                await app.generateJson(project, json);
+            }
+
+            if (!out && !json) {
+                await app.generateDocs(project, "./docs");
+            }
+        });
+        return ExitCodes.Ok;
+    }
+
+    const project = app.convert();
+    if (!project) {
+        return ExitCodes.CompileError;
+    }
+    if (
+        app.options.getValue("treatWarningsAsErrors") &&
+        app.logger.hasWarnings()
+    ) {
+        return ExitCodes.CompileError;
+    }
+
+    app.validate(project);
+    if (app.logger.hasErrors()) {
+        return ExitCodes.ValidationError;
+    }
+    if (
+        app.options.getValue("treatWarningsAsErrors") &&
+        app.logger.hasWarnings()
+    ) {
+        return ExitCodes.ValidationError;
+    }
+
+    if (app.options.getValue("emit") !== "none") {
+        const out = app.options.getValue("out");
+        if (out) {
+            await app.generateDocs(project, out);
+        }
+        const json = app.options.getValue("json");
+        if (json) {
+            await app.generateJson(project, json);
+        }
+
+        if (!out && !json) {
+            await app.generateDocs(project, "./docs");
+        }
+
+        if (app.logger.hasErrors()) {
+            return ExitCodes.OutputError;
+        }
+        if (
+            app.options.getValue("treatWarningsAsErrors") &&
+            app.logger.hasWarnings()
+        ) {
+            return ExitCodes.OutputError;
+        }
+    }
+
+    return ExitCodes.Ok;
+}
