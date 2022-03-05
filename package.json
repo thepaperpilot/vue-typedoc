@@ -1,0 +1,22 @@
+{
+  "name": "vue-typedoc",
+  "version": "0.22.12",
+  "license": "MIT",
+  "files": [
+    "vue-typedoc.js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thepaperpilot/vue-typedoc.git"
+  },
+  "bin": {
+    "vue-typedoc": "./vue-typedoc.js"
+  },
+  "dependencies": {
+    "vue-tsc": "0.32.1"
+  },
+  "peerDependencies": {
+    "typedoc": "*",
+    "typescript": "*"
+  }
+}
