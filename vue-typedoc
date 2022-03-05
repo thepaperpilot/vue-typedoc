@@ -20,7 +20,15 @@ fs.readFileSync = (...args) => {
         );
         tsc = tsc.replace(
             `function createProgram(rootNamesOrOptions, _options, _host, _oldProgram, _configFileParsingDiagnostics) {`,
-            `function createProgram(rootNamesOrOptions, _options, _host, _oldProgram, _configFileParsingDiagnostics) { return require(${JSON.stringify(proxyPath)}).createProgramProxy(...arguments);`,
+            `function createProgram(rootNamesOrOptions, _options, _host, _oldProgram, _configFileParsingDiagnostics) {
+                if (rootNamesOrOptions.host == null) {
+                    rootNamesOrOptions.host = ts.sys;
+                }
+                if (typeof rootNamesOrOptions.host.useCaseSensitiveFileNames === "boolean") {
+                    const useCaseSensitiveFileNames = rootNamesOrOptions.host.useCaseSensitiveFileNames;
+                    rootNamesOrOptions.host.useCaseSensitiveFileNames = () => useCaseSensitiveFileNames;
+                }
+                return require(${JSON.stringify(proxyPath)}).createProgramProxy(rootNamesOrOptions);`,
         );
         return tsc;
     }
