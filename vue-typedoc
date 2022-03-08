@@ -22,14 +22,7 @@ fs.readFileSync = (...args) => {
             `function createProgram(rootNamesOrOptions, _options, _host, _oldProgram, _configFileParsingDiagnostics) {`,
             `function createProgram(rootNamesOrOptions, _options, _host, _oldProgram, _configFileParsingDiagnostics) {
                 if (rootNamesOrOptions.host == null) {
-                    rootNamesOrOptions.host = ts.sys;
-                }
-                if (typeof rootNamesOrOptions.host.useCaseSensitiveFileNames === "boolean") {
-                    const useCaseSensitiveFileNames = rootNamesOrOptions.host.useCaseSensitiveFileNames;
-                    rootNamesOrOptions.host.useCaseSensitiveFileNames = () => useCaseSensitiveFileNames;
-                }
-                if (rootNamesOrOptions.host.getDefaultLibFileName == null) {
-                    rootNamesOrOptions.host.getDefaultLibFileName = ts.getDefaultLibFileName;
+                    rootNamesOrOptions.host = createCompilerHost(rootNamesOrOptions);
                 }
                 return require(${JSON.stringify(proxyPath)}).createProgramProxy(rootNamesOrOptions);`,
         );
