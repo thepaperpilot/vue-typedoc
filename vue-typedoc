@@ -5,7 +5,7 @@ const fs = require('fs');
 
 const readFileSync = fs.readFileSync;
 const tscPath = require.resolve('typescript/lib/typescript');
-const proxyPath = require.resolve('vue-tsc/out/proxy');
+const proxyPath = require.resolve('vue-tsc/out/index');
 
 fs.readFileSync = (...args) => {
     if (args[0] === tscPath) {
@@ -24,7 +24,7 @@ fs.readFileSync = (...args) => {
                 if (rootNamesOrOptions.host == null) {
                     rootNamesOrOptions.host = createCompilerHost(rootNamesOrOptions);
                 }
-                return require(${JSON.stringify(proxyPath)}).createProgramProxy(rootNamesOrOptions);`,
+                return require(${JSON.stringify(proxyPath)}).createProgram(rootNamesOrOptions);`,
         );
         return tsc;
     }
