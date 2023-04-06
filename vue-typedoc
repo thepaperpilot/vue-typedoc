@@ -4,29 +4,31 @@ const fs = require('fs');
 // Remap calls to typescript's createProgram with vue-tsc's proxy
 
 const readFileSync = fs.readFileSync;
-const tscPath = require.resolve('typescript/lib/typescript');
+const tscPath = require.resolve('typescript/lib/tsc');
 const proxyPath = require.resolve('vue-tsc/out/index');
 
 fs.readFileSync = (...args) => {
     if (args[0] === tscPath) {
         let tsc = readFileSync(...args);
-        tsc = tsc.replace(
-            `function createIncrementalProgram(_a) {`,
-            `function createIncrementalProgram(_a) { console.error('incremental mode is not yet supported'); throw 'incremental mode is not yet supported';`,
-        );
-        tsc = tsc.replace(
-            `function createWatchProgram(host) {`,
-            `function createWatchProgram(host) { console.error('watch mode is not yet supported'); throw 'watch mode is not yet supported';`,
-        );
-        tsc = tsc.replace(
-            `function createProgram(rootNamesOrOptions, _options, _host, _oldProgram, _configFileParsingDiagnostics) {`,
-            `function createProgram(rootNamesOrOptions, _options, _host, _oldProgram, _configFileParsingDiagnostics) {
-                if (rootNamesOrOptions.host == null) {
-                    rootNamesOrOptions.host = createCompilerHost(rootNamesOrOptions);
-                }
-                return require(${JSON.stringify(proxyPath)}).createProgram(rootNamesOrOptions);`,
-        );
+
+        // add *.vue files to allow extensions
+        tryReplace(/supportedTSExtensions = .*(?=;)/, s => s + '.concat([[".vue"]])');
+        tryReplace(/supportedJSExtensions = .*(?=;)/, s => s + '.concat([[".vue"]])');
+        tryReplace(/allSupportedExtensions = .*(?=;)/, s => s + '.concat([[".vue"]])');
+
+        // proxy createProgram apis
+        tryReplace(/function createProgram\(.+\) {/, s => s + ` return require(${JSON.stringify(proxyApiPath)}).createProgram(...arguments);`);
+
         return tsc;
+
+        function tryReplace(search, replace) {
+            const before = tsc;
+            tsc = tsc.replace(search, replace);
+            const after = tsc;
+            if (after === before) {
+                throw 'Search string not found: ' + JSON.stringify(search.toString());
+            }
+        }
     }
     return readFileSync(...args);
 };
